@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>잇법 (It LAW) - RAG 기반 형법 분석 시스템</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        
+        :root {
+            --primary-dark: #604652;
+            --secondary-brown: #735557;
+            --tertiary-sage: #97866A;
+            --accent-peach: #D29F80;
+            --white: #FFFFFF;
+            --light-bg: #FDFCFB;
+            --medium-gray: #F5F4F3;
+            --border-color: #EAE9E8;
+            --text-dark: #2C2C2C;
+            --text-light: #5a5a5a;
+            --text-muted: #8a8a8a;
+            --success: #6A977A;
+            --warning: #D2B480;
+            --error: #8C5A64;
+            --shadow-sm: 0 4px 16px rgba(96, 70, 82, 0.06);
+            --shadow-md: 0 8px 32px rgba(96, 70, 82, 0.1);
+            --shadow-lg: 0 16px 64px rgba(96, 70, 82, 0.12);
+            --gradient-primary: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-brown) 100%);
+            --gradient-accent: linear-gradient(135deg, var(--tertiary-sage) 0%, var(--accent-peach) 100%);
+            --border-radius: 12px;
+            --border-radius-lg: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-dark);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* 헤더 */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding: 20px 30px;
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+        .header .logo small {
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 8px;
+        }
+        
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--error);
+            transition: all 0.3s ease;
+        }
+        .status-indicator.online {
+            background: var(--success);
+            box-shadow: 0 0 8px rgba(106, 151, 122, 0.7);
+        }
+
+        .status-info {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .status-badge {
+            background: var(--medium-gray);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        /* 메인 콘텐츠 */
+        .main-content {
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 20px;
+        }
+
+        .tab {
+            padding: 18px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            position: relative;
+            font-family: inherit;
+        }
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--gradient-accent);
+            transform: scaleX(0);
+            transform-origin: center;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab.active {
+            color: var(--primary-dark);
+        }
+        .tab.active::after {
+            transform: scaleX(1);
+        }
+        .tab:hover:not(.active) {
+            color: var(--secondary-brown);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* 2단 레이아웃 */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 200px);
+        }
+        
+        .input-panel {
+            padding: 32px;
+            border-right: 1px solid var(--border-color);
+            background: var(--light-bg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-wrapper {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 16px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: var(--white);
+            color: var(--text-dark);
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--tertiary-sage);
+            box-shadow: 0 0 0 3px rgba(151, 134, 106, 0.15);
+        }
+        
+        textarea {
+            resize: none;
+            min-height: 250px;
+            height: 100%;
+            line-height: 1.6;
+        }
+        
+        .input-footer {
+            margin-top: 24px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px 32px;
+            background: var(--gradient-primary);
+            color: var(--white);
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            box-shadow: 0 4px 12px rgba(96, 70, 82, 0.2);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(96, 70, 82, 0.25);
+        }
+        .btn:active { transform: translateY(0); }
+
+        /* 결과 패널 */
+        .results-panel {
+            padding: 32px;
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        /* 로딩, 에러, 초기상태 */
+        .placeholder {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .placeholder-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+            opacity: 0.2;
+        }
+        .placeholder h3 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+        
+        .loading { text-align: center; color: var(--text-muted); padding: 60px; }
+        .spinner {
+            width: 48px; height: 48px; border: 4px solid var(--medium-gray);
+            border-top: 4px solid var(--tertiary-sage); border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 24px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .error-message {
+            background: rgba(140, 90, 100, 0.05); color: var(--error);
+            padding: 20px 24px; border-radius: var(--border-radius);
+            border: 1px solid rgba(140, 90, 100, 0.1); font-weight: 500;
+        }
+        
+        /* === 답변 및 소스 관련 스타일 (복원 및 통합) === */
+
+        .answer-section {
+            background: var(--white); border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg); padding: 32px;
+            margin-bottom: 32px; box-shadow: var(--shadow-sm);
+        }
+        .answer-header {
+            font-weight: 700; color: var(--primary-dark); margin-bottom: 20px;
+            font-size: 20px; display: flex; align-items: center; gap: 12px;
+        }
+        .answer-content { line-height: 1.8; color: var(--text-dark); white-space: pre-wrap; font-size: 16px; }
+
+        .confidence-section {
+            margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);
+        }
+        .confidence-bar {
+            background: var(--medium-gray); height: 8px; border-radius: 4px;
+            margin: 12px 0; overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%; background: var(--gradient-accent);
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px;
+        }
+
+        .method-badge {
+            display: inline-flex; align-items: center; background: var(--tertiary-sage);
+            color: var(--white); padding: 6px 12px; border-radius: 16px;
+            font-size: 12px; font-weight: 600; margin-left: 8px;
+        }
+        .method-badge.gpt_generated, .method-badge.openai_generated { background: var(--success); }
+        .method-badge.ollama_generated { background: var(--accent-peach); }
+        .method-badge.template_fallback, .method-badge.template_enhanced { background: var(--warning); color: var(--text-dark); }
+
+        .sources-section {
+            margin-top: 32px;
+        }
+        .sources-section h4 {
+            color: var(--primary-dark); margin-bottom: 20px; font-size: 18px;
+            font-weight: 600; display: flex; align-items: center; gap: 8px;
+        }
+        .source-item {
+            border: 1px solid var(--border-color); border-radius: var(--border-radius);
+            margin-bottom: 16px; transition: all 0.3s ease; position: relative;
+            background: var(--white);
+            overflow: hidden;
+        }
+        .source-item::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--gradient-accent);
+        }
+        .source-item:hover {
+            box-shadow: var(--shadow-md); border-color: var(--tertiary-sage);
+            transform: translateY(-2px);
+        }
+
+        /* 검색 결과와 질문 답변의 소스 표시 스타일 통합 */
+        .source-header {
+            background: var(--light-bg); padding: 16px 20px; display: flex;
+            justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .source-title { font-weight: 600; color: var(--text-dark); }
+        .source-similarity {
+            background: var(--tertiary-sage); color: var(--white); padding: 6px 12px;
+            border-radius: 20px; font-size: 12px; font-weight: 600;
+        }
+        .source-content {
+            padding: 20px; font-size: 15px; line-height: 1.7;
+        }
+        .source-content blockquote {
+            border-left: 4px solid var(--accent-peach); padding-left: 16px;
+            margin: 0; color: var(--text-light);
+        }
+        
+        .source-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 0 20px 16px; padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        /* 검색 탭 전용 */
+        #search-tab .results-panel { padding: 0; }
+        .search-results-container { padding: 32px; }
+        .search-summary {
+            margin-bottom: 24px; padding: 16px; background: var(--light-bg);
+            border-radius: var(--border-radius); border: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+        .logo img {
+            width: 100px; /* 원하는 너비로 조절 */
+            height: auto; /* 비율에 맞춰 높이 자동 조절 */
+            vertical-align: middle; /* 텍스트와 이미지의 세로 정렬 */
+            margin-right: 10px; /* 이미지와 텍스트 사이 간격 조절 */
+        }
+
+        /* 통계 탭 */
+        #stats-tab { padding: 40px; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        .stat-card {
+            background: var(--white); padding: 32px; border-radius: var(--border-radius-lg);
+            text-align: center; border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--tertiary-sage); }
+        .stat-number {
+            font-size: 3.2rem; font-weight: 700; color: var(--primary-dark);
+            margin-bottom: 8px; line-height: 1;
+        }
+        .stat-label { color: var(--text-light); font-weight: 600; font-size: 15px; }
+
+        /* 스크롤바 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--medium-gray); }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #bbb; }
+
+        /* 반응형 */
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: 380px 1fr;
+            }
+        }
+        @media (max-width: 992px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            .input-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                height: auto;
+            }
+            textarea {
+                min-height: 150px;
+            }
+            .results-panel {
+                height: auto;
+            }
+        }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 16px; align-items: flex-start; }
+            .status-bar { flex-direction: column; gap: 12px; align-items: flex-start; width: 100%;}
+            .tabs { padding: 0 10px; }
+            .tab { padding: 16px 12px; font-size: 15px; }
+            #stats-tab, .input-panel, .results-panel, .search-results-container { padding: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <img src="logo.svg" alt="잇법 로고">
+                <small>It LAW</small>
+            </div>
+            <div class="status-bar">
+                <div class="status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">서버 연결 확인 중...</span>
+                </div>
+                <div class="status-info">
+                    <div class="status-badge" id="documentCount">문서: -</div>
+                    <div class="status-badge" id="llmStatus">LLM: -</div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('ask', event)">질문하기</button>
+                <button class="tab" onclick="switchTab('search', event)">문서 검색</button>
+                <button class="tab" onclick="switchTab('stats', event)">통계</button>
+            </div>
+
+            <!-- 질문 탭 -->
+            <div id="ask-tab" class="tab-content active">
+                <div class="content-grid">
+                    <div class="input-panel">
+                        <div class="input-wrapper">
+                            <label for="questionInput">질문을 입력하세요</label>
+                            <textarea id="questionInput" placeholder="예: 살인죄의 구성요건은 무엇인가요? 절도와 강도의 차이점은? 업무상횡령죄의 처벌은 어떻게 되나요?"></textarea>
+                        </div>
+                        <div class="input-footer">
+                            <button class="btn" onclick="askQuestion()">AI에게 질문하기</button>
+                        </div>
+                    </div>
+                    <div class="results-panel" id="answerResults">
+                        <div class="placeholder">
+                            <div class="placeholder-icon">🤖</div>
+                            <h3>AI 답변 대기 중</h3>
+                            <p>형법과 관련된 질문을 입력하시면<br>AI가 관련 법령을 분석하여 답변해 드립니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 검색 탭 -->
+            <div id="search-tab" class="tab-content">
+                <div class="content-grid">
+                    <div class="input-panel">
+                        <div class="input-wrapper">
+                            <label for="searchQuery">검색어를 입력하세요</label>
+                            <input type="text" id="searchQuery" placeholder="예: 살인죄, 절도죄, 사기죄, 폭행..." />
+                        </div>
+                        <div class="input-footer">
+                            <button class="btn" onclick="searchDocuments()">문서 검색</button>
+                        </div>
+                    </div>
+                    <div class="results-panel" id="searchResults">
+                        <div class="placeholder">
+                             <div class="placeholder-icon">🔎</div>
+                            <h3>문서 검색</h3>
+                            <p>찾고 싶은 형법 관련 키워드를 입력하고<br>관련 법률 조문을 확인하세요.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 통계 탭 -->
+            <div id="stats-tab" class="tab-content">
+                <div class="stats-grid" id="statsContent">
+                     <div class="placeholder" style="grid-column: 1 / -1;">
+                        <div class="spinner"></div>
+                        <h3>통계 정보를 불러오는 중...</h3>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5002';
+        
+        // --- Core Logic (Largely Unchanged) ---
+        
+        async function checkServerHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (!response.ok) throw new Error('Server not responding');
+                const data = await response.json();
+                
+                document.getElementById('statusIndicator').classList.add('online');
+                document.getElementById('statusText').textContent = '서버 연결됨';
+                document.getElementById('documentCount').textContent = `문서: ${data.documents}개`;
+                const llmText = data.openai_enabled ? 'OpenAI GPT' : 'Template';
+                document.getElementById('llmStatus').textContent = `LLM: ${llmText}`;
+            } catch (error) {
+                document.getElementById('statusIndicator').classList.remove('online');
+                document.getElementById('statusText').textContent = '서버 연결 실패';
+                document.getElementById('documentCount').textContent = '문서: -';
+                document.getElementById('llmStatus').textContent = 'LLM: -';
+            }
+        }
+
+        function switchTab(tabName, event) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            const targetButton = event ? event.target : document.querySelector(`.tab[onclick*="'${tabName}'"]`);
+            if (targetButton) {
+              targetButton.classList.add('active');
+            }
+            
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            history.pushState({tab: tabName}, '', `#${tabName}`);
+
+            if (tabName === 'stats') {
+                loadStatistics();
+            }
+        }
+
+        function showLoading(containerId) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="placeholder">
+                    <div class="spinner"></div>
+                    <h3>처리 중입니다...</h3>
+                    <p>AI가 답변을 생성하고 있습니다. 잠시만 기다려주세요.</p>
+                </div>
+            `;
+        }
+
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="error-message">
+                    <strong>오류 발생</strong><br>
+                    ${message}
+                </div>
+            `;
+        }
+
+        async function searchDocuments() {
+            const query = document.getElementById('searchQuery').value.trim();
+            if (!query) return;
+            showLoading('searchResults');
+            try {
+                const response = await fetch(`${API_BASE_URL}/search`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ query, top_k: 5 })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '검색 오류');
+                displaySearchResults(data);
+            } catch (error) {
+                showError('searchResults', `서버 통신 오류: ${error.message}`);
+            }
+        }
+        
+        function displaySearchResults(data) {
+            const results = data.results || [];
+            let html = '<div class="search-results-container">';
+            html += `
+                <div class="search-summary">
+                    <strong>"${data.query}"</strong>에 대한 ${data.total || 0}개의 검색 결과를 찾았습니다.
+                </div>
+            `;
+            if (results.length === 0) {
+                html += `<div class="placeholder"><p>검색 결과가 없습니다.</p></div>`;
+            } else {
+                results.forEach((result, index) => {
+                    const similarity = (result.similarity * 100).toFixed(1);
+                    const text = result.text.length > 500 ? result.text.substring(0, 500) + '...' : result.text;
+                    const metadata = result.metadata || {};
+                    const articleTitle = metadata.조_부제 || `관련 조문 ${index + 1}`;
+                    
+                    html += `
+                        <div class="source-item">
+                            <div class="source-header">
+                                <div class="source-title">${articleTitle}</div>
+                                <div class="source-similarity">${similarity}% 유사</div>
+                            </div>
+                            <div class="source-content">
+                                <blockquote>${text}</blockquote>
+                                ${metadata.source ? `<div style="font-size:12px; text-align:right; margin-top:10px; color: var(--text-muted);">출처: ${metadata.source}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            html += '</div>';
+            document.getElementById('searchResults').innerHTML = html;
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('questionInput').value.trim();
+            if (!question) return;
+            showLoading('answerResults');
+            try {
+                const response = await fetch(`${API_BASE_URL}/ask`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ question })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '질문 처리 오류');
+                displayAnswer(data);
+            } catch (error) {
+                showError('answerResults', `서버 통신 오류: ${error.message}`);
+            }
+        }
+        
+        // --- displayAnswer 함수 (사용자 요청에 따라 원본으로 복원) ---
+        function displayAnswer(data) {
+            const confidence = (data.confidence * 100).toFixed(1);
+            const sources = data.sources || [];
+            const method = data.method || 'unknown';
+            const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleTimeString('ko-KR') : '';
+            
+            let methodBadgeClass = 'method-badge';
+            if (method.includes('gpt') || method.includes('openai')) {
+                methodBadgeClass += ' gpt_generated';
+            } else if (method.includes('ollama')) {
+                methodBadgeClass += ' ollama_generated';
+            } else if (method.includes('template')) {
+                methodBadgeClass += ' template_fallback';
+            }
+            
+            let sourcesHtml = '';
+            if (sources && sources.length > 0) {
+                sourcesHtml = `
+                    <div class="sources-section">
+                        <h4>📋 AI 답변에 참조된 법령 (${sources.length}개)</h4>
+                        <div style="margin-bottom: 16px; padding: 12px; background: rgba(151, 134, 106, 0.1); border-radius: 8px; font-size: 14px; color: var(--text-muted);">
+                            💡 아래 법령들이 AI 답변 생성 시 참조 자료로 활용되었습니다.
+                        </div>
+                `;
+                sources.forEach((source, index) => {
+                    const similarity = source.similarity ? (source.similarity * 100).toFixed(1) : '알 수 없음';
+                    const sourceText = source.metadata.조_제목 ||'내용을 찾을 수 없습니다';
+                    const metadata = source.metadata || {};
+                    const sourceId = source.id || `문서-${index + 1}`;
+                    const articleNumber = metadata.조_번호 || '';
+                    const articleTitle = metadata.조_부제 || '';
+                    const chapter = metadata.장 || '';
+                    const section = metadata.절 || '';
+                    
+                    sourcesHtml += `
+                        <div class="source-item">
+                            <div class="source-header">
+                                 <div class="source-title">
+                                    📋 ${articleNumber ? `제${articleNumber}조` : `참조 법령 ${index + 1}`}
+                                    ${articleTitle ? ` (${articleTitle})` : ''}
+                                </div>
+                                <div class="source-similarity">${similarity}% 관련도</div>
+                            </div>
+                            <div class="source-content" style="padding-bottom: 0;">
+                                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; font-weight: 500;">
+                                    🆔 문서 ID: ${sourceId}
+                                    ${chapter ? ` | 📖 ${chapter}` : ''}
+                                    ${section ? ` > ${section}` : ''}
+                                </div>
+                                <blockquote>${sourceText.length > 800 ? sourceText.substring(0, 800) + '...' : sourceText}</blockquote>
+                            </div>
+                            <div class="source-footer">
+                                <span>텍스트 길이: ${sourceText.length.toLocaleString()}자</span>
+                                <span>우선순위: ${index + 1}순위</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                sourcesHtml += '</div>';
+            } else {
+                sourcesHtml = `
+                    <div class="sources-section">
+                        <h4>📋 참조된 법령 정보</h4>
+                        <div class="placeholder" style="height:auto; padding: 20px; background: var(--light-bg); border-radius: var(--border-radius);">
+                            <p>이 답변은 일반적인 법령 지식을 바탕으로 생성되었으며,<br>직접 참조된 문서는 없습니다.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const html = `
+                <div class="answer-section">
+                    <div class="answer-header">
+                        🤖 AI 답변
+                        <span class="${methodBadgeClass}">${method}</span>
+                    </div>
+                    <div class="answer-content">${data.answer}</div>
+                    <div class="confidence-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-light); font-size: 14px; font-weight: 600;">신뢰도: ${confidence}%</span>
+                            <span style="color: var(--text-muted); font-size: 12px;">${timestamp}</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidence}%"></div>
+                        </div>
+                    </div>
+                </div>
+                ${sourcesHtml}
+            `;
+            document.getElementById('answerResults').innerHTML = html;
+        }
+
+        async function loadStatistics() {
+            showLoading('statsContent');
+            try {
+                const response = await fetch(`${API_BASE_URL}/stats`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '통계 조회 오류');
+                displayStatistics(data);
+            } catch (error) {
+                showError('statsContent', `서버 통신 오류: ${error.message}`);
+            }
+        }
+        
+        function displayStatistics(data) {
+            const llmType = data.llm_type || (data.openai_enabled ? 'OpenAI' : 'Template');
+            const html = `
+                <div class="stat-card"><div class="stat-number">${data.total_documents || 0}</div><div class="stat-label">총 문서 수</div></div>
+                <div class="stat-card"><div class="stat-number">${Math.round(data.avg_length || 0)}</div><div class="stat-label">평균 텍스트 길이</div></div>
+                <div class="stat-card"><div class="stat-number">${data.vector_dimension || 0}D</div><div class="stat-label">벡터 차원</div></div>
+                <div class="stat-card"><div class="stat-number" style="font-size: 2.2rem;">${llmType}</div><div class="stat-label">LLM 엔진</div></div>
+            `;
+            document.getElementById('statsContent').innerHTML = html;
+        }
+        
+        // --- Event Listeners and Initialization ---
+        
+        document.getElementById('searchQuery').addEventListener('keypress', e => e.key === 'Enter' && searchDocuments());
+        document.getElementById('questionInput').addEventListener('keydown', e => (e.ctrlKey || e.metaKey) && e.key === 'Enter' && askQuestion());
+        
+        window.addEventListener('load', () => {
+            checkServerHealth();
+            setInterval(checkServerHealth, 15000);
+            
+            const hash = window.location.hash.substring(1);
+            const validTabs = ['search', 'ask', 'stats'];
+            if (validTabs.includes(hash)) {
+                const button = Array.from(document.querySelectorAll('.tab')).find(btn => btn.getAttribute('onclick').includes(`'${hash}'`));
+                switchTab(hash, { target: button });
+            } else {
+                // Default to 'ask' tab if no valid hash
+                const askButton = document.querySelector('.tab[onclick*="\'ask\'"]');
+                switchTab('ask', { target: askButton });
+            }
+        });
+        
+    </script>
+</body>
+</html>
