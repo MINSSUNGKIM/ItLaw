@@ -384,23 +384,6 @@
             margin-right: 10px; /* 이미지와 텍스트 사이 간격 조절 */
         }
 
-        /* 통계 탭 */
-        #stats-tab { padding: 40px; }
-        .stats-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-        }
-        .stat-card {
-            background: var(--white); padding: 32px; border-radius: var(--border-radius-lg);
-            text-align: center; border: 1px solid var(--border-color);
-            transition: all 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--tertiary-sage); }
-        .stat-number {
-            font-size: 3.2rem; font-weight: 700; color: var(--primary-dark);
-            margin-bottom: 8px; line-height: 1;
-        }
-        .stat-label { color: var(--text-light); font-weight: 600; font-size: 15px; }
 
         /* 스크롤바 */
         ::-webkit-scrollbar { width: 8px; }
@@ -462,7 +445,6 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('ask', event)">질문하기</button>
                 <button class="tab" onclick="switchTab('search', event)">문서 검색</button>
-                <button class="tab" onclick="switchTab('stats', event)">통계</button>
             </div>
 
             <!-- 질문 탭 -->
@@ -505,16 +487,6 @@
                             <h3>문서 검색</h3>
                             <p>찾고 싶은 형법 관련 키워드를 입력하고<br>관련 법률 조문을 확인하세요.</p>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 통계 탭 -->
-            <div id="stats-tab" class="tab-content">
-                <div class="stats-grid" id="statsContent">
-                     <div class="placeholder" style="grid-column: 1 / -1;">
-                        <div class="spinner"></div>
-                        <h3>통계 정보를 불러오는 중...</h3>
                     </div>
                 </div>
             </div>
@@ -743,18 +715,6 @@
                 ${sourcesHtml}
             `;
             document.getElementById('answerResults').innerHTML = html;
-        }
-
-        async function loadStatistics() {
-            showLoading('statsContent');
-            try {
-                const response = await fetch(`${API_BASE_URL}/stats`);
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '통계 조회 오류');
-                displayStatistics(data);
-            } catch (error) {
-                showError('statsContent', `서버 통신 오류: ${error.message}`);
-            }
         }
         
         function displayStatistics(data) {
